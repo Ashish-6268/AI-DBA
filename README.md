@@ -1,93 +1,249 @@
-# AI-DBA
+# 🤖 AI-DBA — AI Database Agent
 
+An AI-powered natural-language interface to a PostgreSQL database. Ask questions in plain English and get back answers, generated SQL, and raw query results — all through a simple chat UI.
 
+Built for **Instapreps** (an edtech platform), AI-DBA lets non-technical users query production data without writing SQL. It uses a **3-stage LLM pipeline** powered by Groq (Llama 3.3 70B) to translate questions into safe, read-only SQL queries and summarise the results.
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## ✨ Key Features
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- **Natural-language querying** — ask questions like *"How many users signed up in 2025?"* and get instant answers.
+- **3-stage LLM pipeline** — table selection → SQL generation → result summarisation (details below).
+- **SQL safety guard** — only `SELECT` queries are executed; any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, or `CREATE` is blocked automatically.
+- **Schema auto-discovery** — the database schema is introspected and cached on startup so the LLM always has accurate table/column information.
+- **Chat UI** — a lightweight, self-contained HTML/CSS/JS frontend with a chat interface (no build step required).
+- **Debug endpoint** — visit `/schema` to inspect the cached database schema.
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 🔁 The 3-Stage LLM Pipeline
+
+Every user question flows through three sequential LLM calls:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/ananyasamadhiya9/ai-dba.git
-git branch -M main
-git push -uf origin main
+User Question
+     │
+     ▼
+┌──────────────────────┐
+│ Stage 1: Table Picker│  Identifies the 1–3 most relevant tables
+│ (Llama 3.3 70B)      │  from the full schema.
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Stage 2: SQL Generator│  Generates a read-only SELECT query using
+│ (Llama 3.3 70B)       │  the focused schema of the selected tables.
+└──────────┬────────────┘
+           │  SQL is validated by the safety guard,
+           │  then executed against PostgreSQL.
+           ▼
+┌──────────────────────┐
+│ Stage 3: Summariser  │  Summarises the query results into a concise,
+│ (Llama 3.3 70B)      │  business-friendly answer.
+└──────────────────────┘
+           │
+           ▼
+   JSON response: { sql, answer, rows }
 ```
 
-## Integrate with your tools
+---
 
-* [Set up project integrations](https://gitlab.com/ananyasamadhiya9/ai-dba/-/settings/integrations)
+## 🛠 Tech Stack
 
-## Collaborate with your team
+| Layer       | Technology                                |
+| ----------- | ----------------------------------------- |
+| **Backend** | Node.js, Express 5                        |
+| **LLM**     | Groq API (`groq-sdk`) — Llama 3.3 70B    |
+| **Database**| PostgreSQL (`pg`)                          |
+| **Frontend**| Vanilla HTML / CSS / JavaScript           |
+| **Config**  | `dotenv` for environment variables         |
+| **Other**   | `cors` for cross-origin requests           |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+---
 
-## Test and Deploy
+## 📁 Project Structure
 
-Use the built-in continuous integration in GitLab.
+```
+ai-dba/
+├── server.js        # Express backend — LLM pipeline, DB queries, API endpoints
+├── index.html       # Chat UI frontend (open directly in a browser)
+├── package.json     # npm dependencies and project metadata
+├── .env             # Environment variables (GROQ_API_KEY, STAGING_DB_URL) — not committed
+├── .gitignore       # Ignores .env and node_modules/
+└── README.md        # This file
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+| File             | Purpose |
+| ---------------- | ------- |
+| `server.js`      | The entire backend: connects to PostgreSQL, caches the schema, defines the 3-stage LLM pipeline (`pickRelevantTables` → `generateSQL` → summarise), exposes `POST /chat` and `GET /schema` endpoints, and runs the Express server on port **5000**. |
+| `index.html`     | Self-contained chat UI that sends user messages to `http://localhost:5000/chat` and displays the answer, generated SQL, and any errors. No build step needed. |
+| `package.json`   | Declares the project as an ES module (`"type": "module"`) and lists six dependencies: `express`, `cors`, `dotenv`, `pg`, `groq-sdk`, and `openai`. |
+| `.env`           | Stores `GROQ_API_KEY` and `STAGING_DB_URL`. **Must be created manually; never commit this file.** |
 
-***
+---
 
-# Editing this README
+## 📋 Prerequisites
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+- **Node.js** — v18 or later (the project uses top-level `await` and ES modules)
+- **npm** — comes with Node.js
+- **PostgreSQL** — a running instance with an accessible database
+- **Groq API key** — sign up at [console.groq.com](https://console.groq.com) to get a free API key
 
-## Suggestions for a good README
+---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## ⚙️ Environment Variables
 
-## Name
-Choose a self-explaining name for your project.
+Create a `.env` file in the project root with the following variables:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```env
+GROQ_API_KEY=your_groq_api_key_here
+STAGING_DB_URL=postgresql://username:password@host:port/database
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+| Variable         | Description |
+| ---------------- | ----------- |
+| `GROQ_API_KEY`   | Your Groq API key (starts with `gsk_`). Get one from [console.groq.com](https://console.groq.com). |
+| `STAGING_DB_URL` | PostgreSQL connection string. Format: `postgresql://user:password@host:port/dbname`. SSL is disabled in the code (`ssl: false`). |
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+> [!CAUTION]
+> Never commit your `.env` file. It is already listed in `.gitignore`.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+---
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 🐘 PostgreSQL Configuration
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+The server connects to PostgreSQL using the `STAGING_DB_URL` connection string via the `pg` library. On startup it:
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+1. Queries `information_schema.tables` for all tables in the `public` schema.
+2. Queries `information_schema.columns` for each table to get column names.
+3. Caches the schema in memory as a compact string (e.g. `users(id, first_name, email, created_at)`).
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+**What you need:**
+- A PostgreSQL server accessible from where you run the app.
+- A database with tables in the `public` schema.
+- A user with at least `SELECT` privileges on those tables and `information_schema`.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+If you're testing locally, you can set up a local PostgreSQL database:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+# Example: create a local test database
+psql -U postgres -c "CREATE DATABASE testdb;"
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Then set `STAGING_DB_URL=postgresql://postgres:yourpassword@localhost:5432/testdb` in `.env`.
 
-## License
-For open source projects, say how it is licensed.
+---
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## 🚀 Setup & Run
+
+### 1. Clone the repository
+
+```bash
+git clone https://gitlab.com/ananyasamadhiya9/ai-dba.git
+cd ai-dba
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+This installs: `express`, `cors`, `dotenv`, `pg`, `groq-sdk`, and `openai`.
+
+### 3. Create the `.env` file
+
+```bash
+# Linux / macOS
+cp .env.example .env   # or create manually
+
+# Windows (PowerShell)
+New-Item .env
+```
+
+Edit `.env` and fill in your `GROQ_API_KEY` and `STAGING_DB_URL` (see [Environment Variables](#️-environment-variables)).
+
+### 4. Start the server
+
+```bash
+node server.js
+```
+
+You should see:
+
+```
+✅ Schema loaded: <N> tables, <N> chars
+🚀 Server running on port 5000
+```
+
+### 5. Open the chat UI
+
+Open `index.html` directly in your browser (double-click the file, or use a local file server). The frontend sends requests to `http://localhost:5000/chat`.
+
+---
+
+## 💬 Sample Interaction
+
+**You type:** *"How many users signed up in 2025?"*
+
+The 3-stage pipeline runs:
+
+1. **Table Picker** → selects `users`
+2. **SQL Generator** → produces:
+   ```sql
+   SELECT COUNT(*) FROM users WHERE EXTRACT(YEAR FROM created_at) = 2025
+   ```
+3. **Safety Guard** → passes (it's a `SELECT` with no dangerous keywords)
+4. **Query Execution** → runs against PostgreSQL
+5. **Summariser** → returns something like: *"A total of 1,234 users signed up in 2025."*
+
+**Response in the chat UI:**
+
+> **Answer:** A total of 1,234 users signed up in 2025.
+>
+> **SQL:**
+> ```sql
+> SELECT COUNT(*) FROM users WHERE EXTRACT(YEAR FROM created_at) = 2025
+> ```
+
+---
+
+## 🔗 API Reference
+
+### `POST /chat`
+
+Send a natural-language question and receive the generated SQL, query results, and a summary.
+
+**Request:**
+```json
+{
+  "message": "Who are the top 5 weekly winners?"
+}
+```
+
+**Response:**
+```json
+{
+  "sql": "SELECT first_name, score FROM weekly_winners ORDER BY score DESC LIMIT 5",
+  "answer": "The top 5 weekly winners are ...",
+  "rows": [
+    { "first_name": "Alice", "score": 98 },
+    { "first_name": "Bob", "score": 95 }
+  ]
+}
+```
+
+### `GET /schema`
+
+Returns the cached database schema as preformatted HTML. Useful for debugging.
+
+---
+
+## 📝 Notes
+
+- The LLM model used is **`llama-3.3-70b-versatile`** via the Groq API for all three pipeline stages.
+- The `openai` package is listed in `package.json` as a dependency but is **not used** in the current `server.js` code. It may have been used during development or kept for future use.
+- The server listens on **port 5000** (hardcoded in `server.js`).
+- The frontend is a static HTML file that communicates with the backend at `http://localhost:5000/chat` — if you change the port, update the `fetch` URL in `index.html` as well.
+- The SQL safety guard is a regex-based allowlist — it only permits queries that start with `SELECT` and don't contain write keywords. It is not a substitute for proper database-level access controls.
