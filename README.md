@@ -70,6 +70,7 @@ ai-dba/
 ├── index.html       # Chat UI frontend (open directly in a browser)
 ├── package.json     # npm dependencies and project metadata
 ├── .env             # Environment variables (GROQ_API_KEY, STAGING_DB_URL) — not committed
+├── .env.example     # Template for environment variables with safe placeholders
 ├── .gitignore       # Ignores .env and node_modules/
 └── README.md        # This file
 ```
@@ -79,7 +80,8 @@ ai-dba/
 | `server.js`      | The entire backend: connects to PostgreSQL, caches the schema, defines the 3-stage LLM pipeline (`pickRelevantTables` → `generateSQL` → summarise), exposes `POST /chat` and `GET /schema` endpoints, and runs the Express server on port **5000**. |
 | `index.html`     | Self-contained chat UI that sends user messages to `http://localhost:5000/chat` and displays the answer, generated SQL, and any errors. No build step needed. |
 | `package.json`   | Declares the project as an ES module (`"type": "module"`) and lists six dependencies: `express`, `cors`, `dotenv`, `pg`, `groq-sdk`, and `openai`. |
-| `.env`           | Stores `GROQ_API_KEY` and `STAGING_DB_URL`. **Must be created manually; never commit this file.** |
+| `.env`           | Stores `GROQ_API_KEY` and `STAGING_DB_URL` with your local secrets. **Must be created from `.env.example`; never commit this file.** |
+| `.env.example`   | Example environment template with safe placeholder values to document required variables. |
 
 ---
 
@@ -94,7 +96,7 @@ ai-dba/
 
 ## ⚙️ Environment Variables
 
-Create a `.env` file in the project root with the following variables:
+The project requires a `.env` file in the root directory. Copy the provided `.env.example` template:
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
@@ -105,6 +107,9 @@ STAGING_DB_URL=postgresql://username:password@host:port/database
 | ---------------- | ----------- |
 | `GROQ_API_KEY`   | Your Groq API key (starts with `gsk_`). Get one from [console.groq.com](https://console.groq.com). |
 | `STAGING_DB_URL` | PostgreSQL connection string. Format: `postgresql://user:password@host:port/dbname`. SSL is disabled in the code (`ssl: false`). |
+
+> [!NOTE]
+> The LLM model is configured directly in `server.js` via `const LLM_MODEL = "openai/gpt-oss-20b";` and is not read from environment variables.
 
 > [!CAUTION]
 > Never commit your `.env` file. It is already listed in `.gitignore`.
@@ -140,8 +145,8 @@ Then set `STAGING_DB_URL=postgresql://postgres:yourpassword@localhost:5432/testd
 ### 1. Clone the repository
 
 ```bash
-git clone https://gitlab.com/ananyasamadhiya9/ai-dba.git
-cd ai-dba
+git clone https://github.com/Ashish-6268/AI-DBA.git
+cd AI-DBA
 ```
 
 ### 2. Install dependencies
@@ -154,15 +159,19 @@ This installs: `express`, `cors`, `dotenv`, `pg`, `groq-sdk`, and `openai`.
 
 ### 3. Create the `.env` file
 
+Copy `.env.example` to create your local `.env` file:
+
 ```bash
 # Linux / macOS
-cp .env.example .env   # or create manually
+cp .env.example .env
 
 # Windows (PowerShell)
-New-Item .env
+Copy-Item .env.example .env
 ```
 
-Edit `.env` and fill in your `GROQ_API_KEY` and `STAGING_DB_URL` (see [Environment Variables](#️-environment-variables)).
+Open `.env` in your editor and replace the placeholder values with your valid credentials:
+- Set `GROQ_API_KEY` to your valid Groq API key (starts with `gsk_`).
+- Set `STAGING_DB_URL` to your accessible PostgreSQL connection string (e.g. `postgresql://user:password@host:5432/database`).
 
 ### 4. Start the server
 
