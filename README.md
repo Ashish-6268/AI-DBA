@@ -2,7 +2,7 @@
 
 An AI-powered natural-language interface to a PostgreSQL database. Ask questions in plain English and get back answers, generated SQL, and raw query results — all through a simple chat UI.
 
-Built for **Instapreps** (an edtech platform), AI-DBA lets non-technical users query production data without writing SQL. It uses a **3-stage LLM pipeline** powered by Groq (Llama 3.3 70B) to translate questions into safe, read-only SQL queries and summarise the results.
+Built for **Instapreps** (an edtech platform), AI-DBA lets non-technical users query production data without writing SQL. It uses a **3-stage LLM pipeline** powered by Groq (`openai/gpt-oss-20b`) to translate questions into safe, read-only SQL queries and summarise the results.
 
 ---
 
@@ -27,20 +27,20 @@ User Question
      ▼
 ┌──────────────────────┐
 │ Stage 1: Table Picker│  Identifies the 1–3 most relevant tables
-│ (Llama 3.3 70B)      │  from the full schema.
+│ (Groq LLM)           │  from the schema's table names.
 └──────────┬───────────┘
            │
            ▼
 ┌──────────────────────┐
 │ Stage 2: SQL Generator│  Generates a read-only SELECT query using
-│ (Llama 3.3 70B)       │  the focused schema of the selected tables.
+│ (Groq LLM)            │  the focused schema of the selected tables.
 └──────────┬────────────┘
            │  SQL is validated by the safety guard,
            │  then executed against PostgreSQL.
            ▼
 ┌──────────────────────┐
 │ Stage 3: Summariser  │  Summarises the query results into a concise,
-│ (Llama 3.3 70B)      │  business-friendly answer.
+│ (Groq LLM)           │  business-friendly answer.
 └──────────────────────┘
            │
            ▼
@@ -54,7 +54,7 @@ User Question
 | Layer       | Technology                                |
 | ----------- | ----------------------------------------- |
 | **Backend** | Node.js, Express 5                        |
-| **LLM**     | Groq API (`groq-sdk`) — Llama 3.3 70B    |
+| **LLM**     | Groq API (`groq-sdk`) — `openai/gpt-oss-20b` |
 | **Database**| PostgreSQL (`pg`)                          |
 | **Frontend**| Vanilla HTML / CSS / JavaScript           |
 | **Config**  | `dotenv` for environment variables         |
@@ -242,7 +242,7 @@ Returns the cached database schema as preformatted HTML. Useful for debugging.
 
 ## 📝 Notes
 
-- The LLM model used is **`llama-3.3-70b-versatile`** via the Groq API for all three pipeline stages.
+- The LLM model is configured via `LLM_MODEL` in `server.js` (currently set to **`openai/gpt-oss-20b`** via the Groq API). Stage 1 optimizes token usage by supplying table names only, and Stage 2 injects the focused schema for only the matched tables to stay safely within free-tier token-per-minute (TPM) limits on large schemas (180+ tables).
 - The `openai` package is listed in `package.json` as a dependency but is **not used** in the current `server.js` code. It may have been used during development or kept for future use.
 - The server listens on **port 5000** (hardcoded in `server.js`).
 - The frontend is a static HTML file that communicates with the backend at `http://localhost:5000/chat` — if you change the port, update the `fetch` URL in `index.html` as well.

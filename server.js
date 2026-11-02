@@ -14,6 +14,7 @@ app.use(express.json());
    GROQ CONFIG
 =========================== */
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const LLM_MODEL = "openai/gpt-oss-20b";
 
 /* ===========================
    POSTGRES CONFIG
@@ -36,6 +37,7 @@ function isSafeQuery(query) {
    SCHEMA CACHE
 =========================== */
 let cachedSchema = "";
+let cachedTableNames = "";
 
 async function loadSchema() {
   try {
@@ -61,6 +63,7 @@ async function loadSchema() {
     }
 
     cachedSchema = schemaInfo.join("\n");
+    cachedTableNames = tables.rows.map(t => t.table_name).join(", ");
     console.log(`✅ Schema loaded: ${tables.rows.length} tables, ${cachedSchema.length} chars`);
   } catch (err) {
     console.error("❌ Schema load failed:", err.message);
@@ -71,17 +74,17 @@ await loadSchema();
 
 /* ===========================
    STEP 1: PICK BEST TABLE
+   (uses only table names to stay under token limits)
 =========================== */
 async function pickRelevantTables(userMessage) {
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: LLM_MODEL,
     messages: [
       {
         role: "system",
-        content: `You are a database expert. Given a user question and a database schema, identify the 1-3 most relevant tables to answer the question.
+        content: `You are a database expert. Given a user question and a list of table names, identify the 1-3 most relevant tables to answer the question.
 
-Schema:
-${cachedSchema}
+Tables: ${cachedTableNames}
 
 Known mappings:
 - "live sessions" → live_sessions (use scheduled_at for dates)
@@ -107,6 +110,7 @@ Reply with ONLY a comma-separated list of table names. Nothing else. Example: we
 
 /* ===========================
    STEP 2: GENERATE SQL
+   (uses only focused schema for selected tables)
 =========================== */
 async function generateSQL(userMessage, relevantTables) {
   // Get focused schema for just the relevant tables
@@ -116,21 +120,18 @@ async function generateSQL(userMessage, relevantTables) {
     .join("\n");
 
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: LLM_MODEL,
     messages: [
       {
         role: "system",
         content: `You are a PostgreSQL SQL generator for an edtech app called Instapreps.
 
-Relevant tables for this query:
+Tables and columns for this query:
 ${focusedSchema || cachedSchema}
-
-Full schema (for reference):
-${cachedSchema}
 
 Rules:
 - Only generate SELECT queries
-- ONLY use tables and columns that exist in the schema
+- ONLY use tables and columns that exist in the schema above
 - Add LIMIT 20 unless user asks for a count or aggregate
 - If user asks for count/total/how many, use COUNT(*) with no LIMIT
 - No markdown, no backticks, no explanation
@@ -180,7 +181,7 @@ app.post("/chat", async (req, res) => {
 
     // Step 4: Summarize Result
     const summary = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: LLM_MODEL,
       messages: [
         {
           role: "system",
